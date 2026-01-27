@@ -1,0 +1,102 @@
+# TMDB Content Analytics Pipeline Configuration
+
+# BigQuery Configuration
+bigquery:
+  project_id: "${GCP_PROJECT_ID}"
+  dataset_id: "${BQ_DATASET_ID}"
+  location: "US"
+
+  # Table names
+  tables:
+    movies: "movies"
+    snapshots: "movie_daily_snapshots"
+    aggregated_metrics: "movie_metrics_aggregated"
+    ingestion_log: "ingestion_log"
+
+# TMDB API Configuration
+tmdb:
+  api_key: "${TMDB_API_KEY}"
+  base_url: "https://api.themoviedb.org/3"
+  rate_limit:
+    requests_per_second: 4
+    retry_attempts: 3
+    backoff_factor: 2
+
+# Data Ingestion Configuration
+ingestion:
+  initial_load:
+    num_movies: 1000
+    sort_by: "popularity.desc"
+
+  incremental:
+    # Number of days to look back for changes
+    lookback_days: 1
+    # Maximum number of movies to process per run
+    max_movies_per_run: 5000
+
+  refresh:
+    # How often to refresh all tracked movies (days)
+    refresh_interval_days: 7
+
+# Metrics Configuration
+metrics:
+  popularity_momentum:
+    # Thresholds for trend classification
+    thresholds:
+      surging: 10  # % change
+      rising: 5
+      stable: -5
+      declining: -10
+
+    # Window sizes for calculations
+    windows:
+      short_term: 1  # days
+      medium_term: 7  # days
+      long_term: 30  # days
+
+  viral_coefficient:
+    # Minimum daily votes to be considered viral
+    min_daily_votes: 50
+
+    # Viral score thresholds
+    thresholds:
+      extremely_viral: 80
+      highly_viral: 60
+      moderately_viral: 40
+      slightly_viral: 20
+
+    # Weight distribution for viral score calculation
+    weights:
+      vote_velocity: 0.6
+      popularity_change: 0.4
+
+# Airflow DAG Configuration
+airflow:
+  daily_ingestion:
+    schedule: "0 2 * * *"  # 2 AM UTC daily
+    concurrency: 4
+    max_active_runs: 1
+    dagrun_timeout_hours: 2
+
+  weekly_refresh:
+    schedule: "0 3 * * 0"  # 3 AM UTC on Sundays
+    concurrency: 2
+    max_active_runs: 1
+    dagrun_timeout_hours: 6
+
+# Logging Configuration
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+# Alerting Configuration (optional)
+alerting:
+  enabled: false
+  email:
+    recipients: []
+
+  thresholds:
+    # Alert if ingestion fails
+    consecutive_failures: 2
+    # Alert if no data for X days
+    data_freshness_days: 2
